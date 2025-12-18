@@ -26,7 +26,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   bool _isOverlayGranted = false;
   bool _isBatteryOptimizationDisabled = false;
   bool _isOverlayRunning = false;
-  
+
   // Overlay Settings
   double _baseOpacity = 0.08;
   double _grainOpacity = 0.19;
@@ -60,13 +60,29 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
       _tintOpacity = prefs.getDouble('tintOpacity') ?? 0.0;
     });
     // If we want to ensure the overlay starts with these values if it was already running (unlikely on fresh launch but possible)
-     // Actually, we pass these values when starting, or update if running.
-     if (_isOverlayRunning) {
-       _updateOverlaySettings();
-     }
+    // Actually, we pass these values when starting, or update if running.
+    if (_isOverlayRunning) {
+      _updateOverlaySettings();
+    }
   }
 
-  Widget _buildSlider(String label, double value, ValueChanged<double> onChanged, {ValueChanged<double>? onChangeEnd}) {
+  Future<void> _checkOverlayRunning() async {
+    try {
+      final bool running = await platform.invokeMethod('isOverlayRunning');
+      setState(() {
+        _isOverlayRunning = running;
+      });
+    } catch (e) {
+      debugPrint('Error checking overlay running: $e');
+    }
+  }
+
+  Widget _buildSlider(
+    String label,
+    double value,
+    ValueChanged<double> onChanged, {
+    ValueChanged<double>? onChangeEnd,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
       child: Column(
@@ -91,6 +107,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     _loadSettings();
     _checkPermissions();
+    _checkOverlayRunning();
   }
 
   @override
@@ -103,6 +120,7 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _checkPermissions();
+      _checkOverlayRunning();
     }
   }
 
@@ -131,7 +149,9 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
   Future<void> _checkBatteryOptimization() async {
     try {
-      final bool disabled = await platform.invokeMethod('checkBatteryOptimization');
+      final bool disabled = await platform.invokeMethod(
+        'checkBatteryOptimization',
+      );
       setState(() {
         _isBatteryOptimizationDisabled = disabled;
       });
@@ -198,7 +218,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
               Container(
                 height: 200,
                 width: double.infinity,
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                margin: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(12),
                   image: const DecorationImage(
@@ -217,7 +240,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
 
               // Color Swatches
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
@@ -234,8 +260,10 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 ),
               ),
               const Divider(height: 30),
-            
-              Text('Overlay Permission: ${_isOverlayGranted ? "Granted" : "Denied"}'),
+
+              Text(
+                'Overlay Permission: ${_isOverlayGranted ? "Granted" : "Denied"}',
+              ),
               const SizedBox(height: 20),
               if (!_isOverlayGranted)
                 ElevatedButton(
@@ -247,8 +275,13 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                   padding: const EdgeInsets.only(bottom: 10),
                   child: ElevatedButton(
                     onPressed: _requestBatteryOptimization,
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
-                    child: const Text('Disable Battery Optimization (Recommended)', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.orange,
+                    ),
+                    child: const Text(
+                      'Disable Battery Optimization (Recommended)',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 ),
               if (_isOverlayGranted) ...[
@@ -263,15 +296,23 @@ class _MyAppState extends State<MyApp> with WidgetsBindingObserver {
                 ),
                 const SizedBox(height: 20),
                 const Divider(),
-                const Text('Adjust Overlay Style', style: TextStyle(fontWeight: FontWeight.bold)),
+                const Text(
+                  'Adjust Overlay Style',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
                 _buildSlider('Base Opacity', _baseOpacity, (val) {
                   setState(() => _baseOpacity = val);
                   _updateOverlaySettings();
                 }, onChangeEnd: (val) => _saveSettings()),
-                _buildSlider('Grain Opacity', _grainOpacity, (val) {
-                  setState(() => _grainOpacity = val);
-                  _updateOverlaySettings();
-                }, onChangeEnd: (val) => _saveSettings()),
+                _buildSlider(
+                  'Grain Opacity',
+                  _grainOpacity,
+                  (val) {
+                    setState(() => _grainOpacity = val);
+                    _updateOverlaySettings();
+                  },
+                  onChangeEnd: (val) => _saveSettings(),
+                ),
                 _buildSlider('Tint Opacity', _tintOpacity, (val) {
                   setState(() => _tintOpacity = val);
                   _updateOverlaySettings();

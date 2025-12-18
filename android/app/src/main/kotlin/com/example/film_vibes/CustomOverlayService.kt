@@ -4,8 +4,10 @@ import android.app.Service
 import android.content.Context
 import android.content.Intent
 import android.graphics.PixelFormat
+import android.content.ComponentName
 import android.os.Build
 import android.os.IBinder
+import android.service.quicksettings.TileService
 import android.view.WindowManager
 import io.flutter.embedding.android.FlutterView
 import io.flutter.embedding.engine.FlutterEngine
@@ -17,6 +19,10 @@ import io.flutter.embedding.android.FlutterTextureView
 import io.flutter.plugin.common.MethodChannel
 
 class CustomOverlayService : Service() {
+    companion object {
+        var isRunning = false
+    }
+
     private var windowManager: WindowManager? = null
     private var flutterView: FlutterView? = null
     private var flutterEngine: FlutterEngine? = null
@@ -24,15 +30,17 @@ class CustomOverlayService : Service() {
 
     override fun onBind(intent: Intent?): IBinder? = null
 
-    private var initialBaseOpacity = 0.25
-    private var initialGrainOpacity = 0.40
-    private var initialTintOpacity = 0.10
+    private var initialBaseOpacity = 0.08
+    private var initialGrainOpacity = 0.19
+    private var initialTintOpacity = 0.0
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent != null) {
-            initialBaseOpacity = intent.getDoubleExtra("baseOpacity", 0.25)
-            initialGrainOpacity = intent.getDoubleExtra("grainOpacity", 0.40)
-            initialTintOpacity = intent.getDoubleExtra("tintOpacity", 0.10)
+        if (intent != null && intent.hasExtra("baseOpacity")) {
+            initialBaseOpacity = intent.getDoubleExtra("baseOpacity", 0.08)
+            initialGrainOpacity = intent.getDoubleExtra("grainOpacity", 0.19)
+            initialTintOpacity = intent.getDoubleExtra("tintOpacity", 0.0)
+        } else {
+            loadSettingsFromPrefs()
         }
 
         if (windowManager == null) {
@@ -44,6 +52,37 @@ class CustomOverlayService : Service() {
             }
         }
         return START_STICKY
+    }
+
+    private fun loadSettingsFromPrefs() {
+        val prefs = getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
+        
+        fun getDouble(key: String, default: Double): Double {
+            val fullKey = "flutter.$key"
+            if (!prefs.contains(fullKey)) return default
+            
+            // Flutter's shared_preferences plugin stores doubles as Strings to preserve precision
+            // as SharedPreferences only natively supports 32-bit Floats.
+            return try {
+                // Try reading as String and parsing
+                val stringValue = prefs.getString(fullKey, null)
+                stringValue?.toDouble() ?: default
+            } catch (e: ClassCastException) {
+                 // Fallback: If it's not a String, maybe it was stored as a Float?
+                 try {
+                     prefs.getFloat(fullKey, default.toFloat()).toDouble()
+                 } catch (e2: Exception) {
+                     // If all else fails (e.g. Long bits from some other version?), return default
+                     default
+                 }
+            } catch (e: Exception) {
+                default
+            }
+        }
+
+        initialBaseOpacity = getDouble("baseOpacity", 0.08)
+        initialGrainOpacity = getDouble("grainOpacity", 0.19)
+        initialTintOpacity = getDouble("tintOpacity", 0.0)
     }
 
     private fun showOverlay() {
@@ -190,6 +229,10 @@ class CustomOverlayService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        isRunning = true
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            TileService.requestListeningState(this, android.content.ComponentName(packageName, "com.example.film_vibes.OverlayTileService"))
+        }
         val filter = android.content.IntentFilter("com.example.paper_vibes.UPDATE_OVERLAY")
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             registerReceiver(updateReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
@@ -200,6 +243,10 @@ class CustomOverlayService : Service() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isRunning = false
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
+            TileService.requestListeningState(this, android.content.ComponentName(packageName, "com.example.film_vibes.OverlayTileService"))
+        }
         try {
             unregisterReceiver(updateReceiver)
         } catch (e: Exception) {

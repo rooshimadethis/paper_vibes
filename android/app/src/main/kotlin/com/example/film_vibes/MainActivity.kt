@@ -22,6 +22,9 @@ class MainActivity : FlutterActivity() {
                 "checkPermission" -> {
                     result.success(checkOverlayPermission())
                 }
+                "isOverlayRunning" -> {
+                    result.success(CustomOverlayService.isRunning)
+                }
                 "requestPermission" -> {
                     if (checkOverlayPermission()) {
                         result.success(true)
