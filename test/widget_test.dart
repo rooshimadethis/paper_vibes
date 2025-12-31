@@ -1,30 +1,63 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:paper_vibes/main.dart';
+import 'package:paper_vibes/gratitude_popup.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets('GratitudeJournalPopup renders and functions correctly', (WidgetTester tester) async {
+    bool closed = false;
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GratitudeJournalPopup(
+            onClose: () {
+              closed = true;
+            },
+          ),
+        ),
+      ),
+    );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    // Verify header text
+    expect(find.text('Gratitude Journal'), findsOneWidget);
+    expect(find.text('What are you grateful for right now?'), findsOneWidget);
+
+    // Verify text field exists
+    expect(find.byType(TextField), findsOneWidget);
+
+    // Verify save button exists
+    expect(find.text('Save'), findsOneWidget);
+
+    // Enter text
+    await tester.enterText(find.byType(TextField), 'I am grateful for coding.');
+    expect(find.text('I am grateful for coding.'), findsOneWidget);
+
+    // Tap save button
+    await tester.tap(find.text('Save'));
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    // Verify close callback was called
+    expect(closed, isTrue);
+
+    // Reset and test close button
+    closed = false;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GratitudeJournalPopup(
+            onClose: () {
+              closed = true;
+            },
+          ),
+        ),
+      ),
+    );
+
+    // Find close icon button
+    expect(find.byIcon(Icons.close), findsOneWidget);
+    await tester.tap(find.byIcon(Icons.close));
+    await tester.pump();
+
+    expect(closed, isTrue);
   });
 }
