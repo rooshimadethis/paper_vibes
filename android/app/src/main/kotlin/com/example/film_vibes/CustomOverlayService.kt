@@ -163,17 +163,45 @@ class CustomOverlayService : Service() {
         flutterEngine?.dartExecutor?.binaryMessenger?.let { messenger ->
             overlayControlChannel = MethodChannel(messenger, "paper_vibes/overlay_control")
             overlayControlChannel?.setMethodCallHandler { call, result ->
-                if (call.method == "getInitialSettings") {
-                    result.success(mapOf(
-                        "baseOpacity" to initialBaseOpacity,
-                        "grainOpacity" to initialGrainOpacity,
-                        "tintOpacity" to initialTintOpacity
-                    ))
-                } else {
-                    result.notImplemented()
+                when (call.method) {
+                    "getInitialSettings" -> {
+                        result.success(mapOf(
+                            "baseOpacity" to initialBaseOpacity,
+                            "grainOpacity" to initialGrainOpacity,
+                            "tintOpacity" to initialTintOpacity
+                        ))
+                    }
+                    "updateInteraction" -> {
+                        val enable = call.argument<Boolean>("enable") ?: false
+                        updateWindowFlags(enable)
+                        result.success(null)
+                    }
+                    else -> {
+                        result.notImplemented()
+                    }
                 }
             }
         }
+    }
+
+    private fun updateWindowFlags(enableInteraction: Boolean) {
+        if (flutterView == null || windowManager == null) return
+
+        val layoutParams = flutterView!!.layoutParams as WindowManager.LayoutParams
+
+        if (enableInteraction) {
+            // Remove flags that prevent interaction
+            layoutParams.flags = layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE.inv()
+            layoutParams.flags = layoutParams.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
+        } else {
+            // Restore flags to make overlay pass-through
+            layoutParams.flags = layoutParams.flags or WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
+            layoutParams.flags = layoutParams.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
+        }
+
+        // We always keep FLAG_NOT_TOUCH_MODAL and others
+
+        windowManager!!.updateViewLayout(flutterView, layoutParams)
     }
 
     private fun createNotificationChannel(): String {

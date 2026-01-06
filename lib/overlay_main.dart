@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'dart:async';
+import 'gratitude_popup.dart';
 
 
 // overlayMain has been moved to main.dart
@@ -49,6 +51,8 @@ class _OverlayAppState extends State<OverlayApp> with SingleTickerProviderStateM
   static const MethodChannel platform = MethodChannel('paper_vibes/overlay_control');
   late AnimationController _controller;
   late Animation<double> _animation;
+  Timer? _gratitudeTimer;
+  bool _showGratitudePopup = false;
 
   @override
   void initState() {
@@ -74,12 +78,45 @@ class _OverlayAppState extends State<OverlayApp> with SingleTickerProviderStateM
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _fetchInitialSettings();
+      _startGratitudeTimer();
     });
+  }
+
+  void _startGratitudeTimer() {
+    // Schedule the first popup in 1 hour
+    _gratitudeTimer = Timer.periodic(const Duration(hours: 1), (timer) {
+      _triggerGratitudePopup();
+    });
+  }
+
+  void _triggerGratitudePopup() {
+    if (!_showGratitudePopup) {
+      _toggleInteraction(true);
+      setState(() {
+        _showGratitudePopup = true;
+      });
+    }
+  }
+
+  void _closeGratitudePopup() {
+    setState(() {
+      _showGratitudePopup = false;
+    });
+    _toggleInteraction(false);
+  }
+
+  Future<void> _toggleInteraction(bool enable) async {
+    try {
+      await platform.invokeMethod('updateInteraction', {'enable': enable});
+    } catch (e) {
+      debugPrint('Error updating interaction: $e');
+    }
   }
 
   @override
   void dispose() {
     _controller.dispose();
+    _gratitudeTimer?.cancel();
     super.dispose();
   }
 
@@ -169,6 +206,12 @@ class _OverlayAppState extends State<OverlayApp> with SingleTickerProviderStateM
                   ),
                 ),
               ),
+
+              // Gratitude Popup (Not ignored)
+              if (_showGratitudePopup)
+                GratitudeJournalPopup(
+                  onClose: _closeGratitudePopup,
+                ),
             ],
           ),
         ),
